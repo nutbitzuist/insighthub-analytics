@@ -29,7 +29,12 @@ export default function GoalsPage() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newGoal, setNewGoal] = useState({
+  const [newGoal, setNewGoal] = useState<{
+    name: string;
+    description: string;
+    goalType: string;
+    config: Record<string, string>;
+  }>({
     name: "",
     description: "",
     goalType: "destination",

@@ -49,3 +49,4 @@ coverage
 # GeoIP database
 *.mmdb
 .vercel
+.env*.local
