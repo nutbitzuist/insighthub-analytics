@@ -1,5 +1,0 @@
-{
-    "framework": "nextjs",
-    "installCommand": "cd ../.. && pnpm install --frozen-lockfile && cd apps/web && npx prisma generate --schema=../api/prisma/schema.prisma",
-    "buildCommand": "pnpm run build"
-}
