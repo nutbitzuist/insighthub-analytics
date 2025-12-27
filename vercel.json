@@ -1,6 +1,13 @@
 {
-    "framework": "nextjs",
-    "buildCommand": "cd apps/web && npx prisma generate --schema=../api/prisma/schema.prisma && cd ../.. && pnpm --filter web build",
+    "version": 2,
+    "builds": [
+        {
+            "src": "apps/web/package.json",
+            "use": "@vercel/next"
+        }
+    ],
+    "installCommand": "pnpm install",
+    "buildCommand": "cd apps/web && npx prisma generate --schema=../api/prisma/schema.prisma && pnpm run build",
     "outputDirectory": "apps/web/.next",
     "ignoreCommand": "git diff --quiet HEAD^ HEAD ./apps/web ./packages/shared ./package.json ./pnpm-lock.yaml"
 }
