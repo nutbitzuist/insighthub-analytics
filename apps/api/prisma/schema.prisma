@@ -1,0 +1,374 @@
+// This is your Prisma schema file
+// Learn more at https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// Authentication & Users
+// ==========================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  name          String?
+  avatarUrl     String?
+  
+  // OAuth
+  oauthProvider String?
+  oauthId       String?
+  
+  // Status
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  memberships   OrganizationMember[]
+  createdAlerts Alert[]
+  annotations   Annotation[]
+  apiKeys       ApiKey[]
+  sharedDashboards SharedDashboard[]
+  
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ==========================================
+// Organizations (Multi-tenancy)
+// ==========================================
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  
+  // Branding (white-label)
+  logoUrl      String?
+  primaryColor String?
+  customDomain String?
+  
+  // Billing
+  stripeCustomerId String?
+  plan             String   @default("free")
+  planLimits       Json     @default("{}")
+  
+  // Reseller
+  isReseller       Boolean  @default(false)
+  resellerConfig   Json?
+  parentOrgId      String?
+  parentOrg        Organization?  @relation("OrgHierarchy", fields: [parentOrgId], references: [id])
+  childOrgs        Organization[] @relation("OrgHierarchy")
+  
+  // Status
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  // Relations
+  members    OrganizationMember[]
+  sites      Site[]
+  apiKeys    ApiKey[]
+  
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id             String    @id @default(cuid())
+  organizationId String
+  userId         String
+  role           String    @default("member") // owner, admin, member, viewer
+  invitedBy      String?
+  invitedAt      DateTime  @default(now())
+  acceptedAt     DateTime?
+  
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([organizationId, userId])
+  @@map("organization_members")
+}
+
+// ==========================================
+// Sites (Tracked Websites)
+// ==========================================
+
+model Site {
+  id             String   @id @default(cuid())
+  organizationId String
+  
+  // Basic info
+  name           String
+  domain         String
+  allowedHosts   String[] @default([])
+  
+  // Tracking settings
+  trackingId     String   @unique
+  isActive       Boolean  @default(true)
+  
+  // Feature flags
+  enableHeatmaps    Boolean @default(true)
+  enableRecordings  Boolean @default(false)
+  
+  // Privacy settings
+  anonymizeIps      Boolean @default(true)
+  respectDnt        Boolean @default(true)
+  cookieConsentMode String  @default("strict")
+  
+  // Data retention (days)
+  dataRetentionDays Int     @default(1095) // 3 years
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  goals              Goal[]
+  funnels            Funnel[]
+  alerts             Alert[]
+  annotations        Annotation[]
+  paymentIntegrations PaymentIntegration[]
+  sharedDashboards   SharedDashboard[]
+  
+  @@map("sites")
+}
+
+// ==========================================
+// Goals & Funnels
+// ==========================================
+
+model Goal {
+  id          String   @id @default(cuid())
+  siteId      String
+  
+  name        String
+  description String?
+  
+  goalType    String   // destination, event, duration, pages
+  config      Json
+  
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  
+  @@map("goals")
+}
+
+model Funnel {
+  id          String   @id @default(cuid())
+  siteId      String
+  
+  name        String
+  description String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  site        Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  steps       FunnelStep[]
+  
+  @@map("funnels")
+}
+
+model FunnelStep {
+  id         String  @id @default(cuid())
+  funnelId   String
+  
+  stepOrder  Int
+  name       String
+  
+  stepType   String  // pageview, event
+  config     Json
+  
+  isRequired Boolean @default(true)
+  
+  funnel     Funnel  @relation(fields: [funnelId], references: [id], onDelete: Cascade)
+  
+  @@unique([funnelId, stepOrder])
+  @@map("funnel_steps")
+}
+
+// ==========================================
+// Alerts & Annotations
+// ==========================================
+
+model Alert {
+  id              String   @id @default(cuid())
+  siteId          String
+  createdById     String
+  
+  name            String
+  
+  metric          String
+  condition       String   // above, below, change_percent
+  threshold       Float
+  comparisonPeriod String  @default("day")
+  
+  notifyChannels  String[] @default(["email"])
+  notifyEmails    String[] @default([])
+  webhookUrl      String?
+  slackWebhook    String?
+  
+  isActive        Boolean  @default(true)
+  lastTriggeredAt DateTime?
+  
+  createdAt       DateTime @default(now())
+  
+  site            Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  createdBy       User     @relation(fields: [createdById], references: [id])
+  
+  @@map("alerts")
+}
+
+model Annotation {
+  id             String   @id @default(cuid())
+  siteId         String
+  createdById    String
+  
+  annotationDate DateTime @db.Date
+  title          String
+  description    String?
+  category       String   @default("other")
+  
+  createdAt      DateTime @default(now())
+  
+  site           Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  createdBy      User     @relation(fields: [createdById], references: [id])
+  
+  @@map("annotations")
+}
+
+// ==========================================
+// Integrations
+// ==========================================
+
+model PaymentIntegration {
+  id                    String   @id @default(cuid())
+  siteId                String
+  
+  provider              String   // stripe, lemonsqueezy, paddle
+  
+  // Encrypted credentials
+  credentialsEncrypted  Bytes?
+  webhookSecretEncrypted Bytes?
+  webhookEndpointId     String?
+  
+  isActive              Boolean  @default(true)
+  lastSyncedAt          DateTime?
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  site                  Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  
+  @@map("payment_integrations")
+}
+
+// ==========================================
+// API & Sharing
+// ==========================================
+
+model ApiKey {
+  id             String   @id @default(cuid())
+  organizationId String
+  createdById    String
+  
+  name           String
+  keyHash        String   // SHA256 of actual key
+  keyPrefix      String   // First 10 chars for display
+  
+  permissions    String[] @default([])
+  rateLimit      Int      @default(1000)
+  
+  lastUsedAt     DateTime?
+  expiresAt      DateTime?
+  isActive       Boolean  @default(true)
+  
+  createdAt      DateTime @default(now())
+  
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy      User         @relation(fields: [createdById], references: [id])
+  
+  @@map("api_keys")
+}
+
+model SharedDashboard {
+  id          String   @id @default(cuid())
+  siteId      String
+  createdById String
+  
+  shareToken  String   @unique
+  
+  // Access control
+  passwordHash String?
+  expiresAt    DateTime?
+  
+  // What to show
+  visibleWidgets String[] @default([])
+  dateRange      String   @default("last_30_days")
+  
+  // Branding
+  showBranding   Boolean  @default(true)
+  customTitle    String?
+  
+  isActive       Boolean  @default(true)
+  viewCount      Int      @default(0)
+  lastViewedAt   DateTime?
+  
+  createdAt      DateTime @default(now())
+  
+  site           Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  createdBy      User     @relation(fields: [createdById], references: [id])
+  
+  @@map("shared_dashboards")
+}
