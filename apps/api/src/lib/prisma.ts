@@ -1,7 +1,9 @@
-import { PrismaClient } from "@prisma/client";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const { PrismaClient } = require("@prisma/client");
 
 const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
+  prisma: typeof PrismaClient extends new (...args: any) => infer R ? R : never | undefined;
 };
 
 export const prisma =
