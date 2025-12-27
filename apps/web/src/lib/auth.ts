@@ -11,6 +11,9 @@ const loginSchema = z.object({
 });
 
 const nextAuth = NextAuth({
+  debug: true,
+  trustHost: true,
+  secret: process.env.AUTH_SECRET,
   adapter: PrismaAdapter(prisma) as any,
   session: { strategy: "jwt" },
   pages: {
