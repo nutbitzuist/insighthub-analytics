@@ -4,6 +4,17 @@ import { collectRoutes } from "./routes/collect.js";
 import { sitesRoutes } from "./routes/sites.js";
 import { statsRoutes } from "./routes/stats.js";
 import { webhooksRoutes } from "./routes/webhooks.js";
+import { revenueRoutes } from "./routes/revenue.js";
+import { goalsRoutes } from "./routes/goals.js";
+import { funnelsRoutes } from "./routes/funnels.js";
+import { eventsRoutes } from "./routes/events.js";
+import { heatmapsRoutes } from "./routes/heatmaps.js";
+import { alertsRoutes } from "./routes/alerts.js";
+import { sharingRoutes } from "./routes/sharing.js";
+import { apiKeysRoutes } from "./routes/api-keys.js";
+import { teamsRoutes } from "./routes/teams.js";
+import { billingRoutes } from "./routes/billing.js";
+import { whiteLabelRoutes } from "./routes/white-label.js";
 import { prisma } from "./lib/prisma.js";
 import { redis } from "./lib/redis.js";
 import { clickhouse } from "./lib/clickhouse.js";
@@ -36,6 +47,23 @@ fastify.register(collectRoutes, { prefix: "/api/collect" });
 fastify.register(sitesRoutes, { prefix: "/api/sites" });
 fastify.register(statsRoutes, { prefix: "/api/stats" });
 fastify.register(webhooksRoutes, { prefix: "/api/webhooks" });
+
+// Phase 2: Revenue, Goals, Funnels, Events
+fastify.register(revenueRoutes, { prefix: "/api" });
+fastify.register(goalsRoutes, { prefix: "/api" });
+fastify.register(funnelsRoutes, { prefix: "/api" });
+fastify.register(eventsRoutes, { prefix: "/api" });
+
+// Phase 3: Heatmaps, Alerts, Sharing
+fastify.register(heatmapsRoutes, { prefix: "/api" });
+fastify.register(alertsRoutes, { prefix: "/api" });
+fastify.register(sharingRoutes, { prefix: "/api" });
+
+// Phase 4: API Keys, Teams, Billing, White-label
+fastify.register(apiKeysRoutes, { prefix: "/api" });
+fastify.register(teamsRoutes, { prefix: "/api" });
+fastify.register(billingRoutes, { prefix: "/api" });
+fastify.register(whiteLabelRoutes, { prefix: "/api" });
 
 // Graceful shutdown
 const signals: NodeJS.Signals[] = ["SIGINT", "SIGTERM"];

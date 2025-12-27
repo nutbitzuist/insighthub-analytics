@@ -114,9 +114,12 @@ model Organization {
   updatedAt  DateTime @updatedAt
   
   // Relations
-  members    OrganizationMember[]
-  sites      Site[]
-  apiKeys    ApiKey[]
+  members      OrganizationMember[]
+  sites        Site[]
+  apiKeys      ApiKey[]
+  subscription Subscription?
+  whiteLabel   WhiteLabel?
+  invites      OrganizationInvite[]
   
   @@map("organizations")
 }
@@ -177,6 +180,7 @@ model Site {
   annotations        Annotation[]
   paymentIntegrations PaymentIntegration[]
   sharedDashboards   SharedDashboard[]
+  publicShare        PublicShare?
   
   @@map("sites")
 }
@@ -371,4 +375,185 @@ model SharedDashboard {
   createdBy      User     @relation(fields: [createdById], references: [id])
   
   @@map("shared_dashboards")
+}
+
+// ==========================================
+// Revenue Tracking
+// ==========================================
+
+model RevenueEvent {
+  id              String   @id @default(cuid())
+  siteId          String
+  visitorId       String
+  
+  transactionId   String
+  transactionType String   // one_time, subscription, refund
+  
+  amount          Float
+  currency        String
+  amountUsd       Float
+  
+  productId       String?
+  productName     String?
+  customerId      String?
+  customerEmail   String?
+  subscriptionId  String?
+  mrrChange       Float?
+  
+  // Attribution
+  attributedSource   String?
+  attributedMedium   String?
+  attributedCampaign String?
+  attributedChannel  String?
+  
+  timestamp       DateTime @default(now())
+  
+  @@index([siteId, timestamp])
+  @@map("revenue_events")
+}
+
+// ==========================================
+// Goal Conversions
+// ==========================================
+
+model GoalConversion {
+  id        String   @id @default(cuid())
+  goalId    String
+  visitorId String
+  sessionId String
+  value     Float    @default(0)
+  timestamp DateTime @default(now())
+  
+  @@index([goalId, timestamp])
+  @@map("goal_conversions")
+}
+
+// ==========================================
+// Alert Triggers
+// ==========================================
+
+model AlertTrigger {
+  id          String   @id @default(cuid())
+  alertId     String
+  metricValue Float
+  threshold   Float
+  triggeredAt DateTime @default(now())
+  
+  @@index([alertId, triggeredAt])
+  @@map("alert_triggers")
+}
+
+// ==========================================
+// Public Sharing
+// ==========================================
+
+model PublicShare {
+  id             String   @id @default(cuid())
+  siteId         String   @unique
+  
+  shareToken     String   @unique
+  customSlug     String?  @unique
+  
+  isPublic       Boolean  @default(false)
+  passwordHash   String?
+  expiresAt      DateTime?
+  allowedMetrics String[] @default([])
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  site           Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  
+  @@map("public_shares")
+}
+
+// ==========================================
+// Organization Invites
+// ==========================================
+
+model OrganizationInvite {
+  id             String   @id @default(cuid())
+  organizationId String
+  email          String
+  role           String
+  token          String   @unique
+  status         String   @default("pending") // pending, accepted, expired
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  
+  @@index([organizationId, status])
+  @@map("organization_invites")
+}
+
+// ==========================================
+// Subscriptions & Billing
+// ==========================================
+
+model Subscription {
+  id                   String   @id @default(cuid())
+  organizationId       String   @unique
+  
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  
+  status               String   @default("active") // active, past_due, canceled, trialing
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean  @default(false)
+  
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  @@map("subscriptions")
+}
+
+// ==========================================
+// White Label Settings
+// ==========================================
+
+model WhiteLabel {
+  id                      String   @id @default(cuid())
+  organizationId          String   @unique
+  
+  customDomain            String?
+  domainVerified          Boolean  @default(false)
+  domainVerificationToken String?
+  
+  logoUrl                 String?
+  faviconUrl              String?
+  primaryColor            String?
+  secondaryColor          String?
+  companyName             String?
+  supportEmail            String?
+  customCss               String?  @db.Text
+  
+  hideInsightHubBranding  Boolean  @default(false)
+  customFooterText        String?
+  customLoginMessage      String?
+  
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  
+  organization            Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  @@map("white_labels")
+}
+
+// ==========================================
+// Analytics Sessions (for goal tracking)
+// ==========================================
+
+model AnalyticsSession {
+  id        String   @id @default(cuid())
+  siteId    String
+  visitorId String
+  sessionId String   @unique
+  startedAt DateTime @default(now())
+  endedAt   DateTime?
+  pageviews Int      @default(0)
+  
+  @@index([siteId, startedAt])
+  @@map("analytics_sessions")
 }
